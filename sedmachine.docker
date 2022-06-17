@@ -1,0 +1,74 @@
+#!/bin/busybox sh
+# If using outside of alpine, be sure to change `ulimit` command accordingly.
+
+telegram() {
+	# Build url
+	_url="https://api.telegram.org/bot$TOKEN/$1"
+	shift
+
+	if ! RESP=$(curl -s "$@" "$_url" | jq -e "if .ok then .result else .description end"); then
+		printf >&2 'Error: %s\n' "$(m -r .)"
+		return 1
+	fi
+}
+
+# Too lazy to type
+m() {
+	printf "%s" "$RESP" | jq "$@"
+}
+
+read -r OFFSET < /var/cache/sm_offset
+: "${OFFSET:=0}"
+TIMEOUT=900
+
+# El evento loopio
+
+telegram getUpdates -m "$TIMEOUT" -d timeout="$TIMEOUT" -d offset="$OFFSET" || exit 1
+
+OFFSET=$(m -e '.[-1].update_id') || exit 1
+
+# cursed_multiplexing.sh
+ARGS="$(m -r '[ .[] | .message? |
+	.reply_to_message.message_id,
+	.reply_to_message.chat.id,
+	( .reply_to_message |
+		if .text then
+			.text
+		else
+			if .caption then
+				.caption
+			else
+				""
+			end
+		end ),
+	.from.username,
+	.chat.id,
+	.text,
+	.message_id
+] | @sh')"
+eval set -- "$ARGS"
+
+esed() (
+	ulimit -u1 -n1 &&
+	exec sed "$@"
+)
+
+while [ "${7+g}" = g ]; do
+	REPLY_ID=$1; REPLY_CHAT_ID=$2; REPLY_TEXT=$3
+	CHANGER=$4; CHAT_ID=$5; TEXT=$6; ID=$7
+		if [ "$REPLY_ID" != null ] && [ "${TEXT#[sy][[:punct:]]}" != "$TEXT" ]; then
+		CHANGED=$(printf '%s\n' "$REPLY_TEXT" | esed -Ee "$TEXT" 2>&1) || {
+				REPLY_CHAT_ID="$CHAT_ID"
+				REPLY_ID="$ID"
+		}
+		[ "$CHANGED" ] || CHANGED='[empty message]'
+		telegram sendMessage \
+			--data-urlencode chat_id="$REPLY_CHAT_ID" \
+			--data-urlencode reply_to_message_id="$REPLY_ID" \
+			--data-urlencode text="$CHANGED" >/dev/null 2>&1
+		printf >&2 '%s changed %s to %s\n' "$CHANGER" "$REPLY_TEXT" "$CHANGED"
+	fi
+	shift 7
+done
+
+echo $((OFFSET+1)) > /var/cache/sm_offset
