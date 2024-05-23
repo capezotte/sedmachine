@@ -1,0 +1,2 @@
+#!/bin/busybox sh
+ulimit -u1 -n1 && exec sed "$@"
