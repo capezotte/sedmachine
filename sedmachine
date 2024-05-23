@@ -15,7 +15,8 @@ m() {
 	printf "%s" "$RESP" | jq "$@"
 }
 
-read -r OFFSET < /var/cache/sm_offset
+: "${OFFSET_FILE:=/var/cache/sm_offset}" "${TOKEN?}"
+read -r OFFSET < "$OFFSET_FILE"
 : "${OFFSET:=0}"
 TIMEOUT=900
 
@@ -50,16 +51,9 @@ while [ "${7+g}" = g ]; do
 	REPLY_ID=$1; REPLY_CHAT_ID=$2; REPLY_TEXT=$3
 	CHANGER=$4; CHAT_ID=$5; TEXT=$6; ID=$7
 		if [ "$REPLY_ID" != null ] && [ "${TEXT#[sy][[:punct:]]}" != "$TEXT" ]; then
-		CHANGED=$(printf '%s\n' "$REPLY_TEXT" | argv0 gsed 'Authentic GNU sed' --sandbox -Ee "$TEXT" 2>&1) || {
-			#if [ "${CHANGED%unterminated * command}" != "$CHANGED" ]; then
-			#	CHANGED=$(printf '%s\n' 'kk ala o cara usa @regexbot' \
-			#		'o nome do bot n é vim machine nn' \
-			#		'esqueceu da palavra mágica' \
-			#		'confirmado! nao usa trampo no sed!' \
-			#		'ia cumpade imbarssou foi tudo aqui' | shuf -n1)
-			#fi
-				REPLY_CHAT_ID="$CHAT_ID"
-				REPLY_ID="$ID"
+		CHANGED=$(printf '%s\n' "$REPLY_TEXT" | ${SED:-gsed --sandbox} -Ee "$TEXT" 2>&1) || {
+			REPLY_CHAT_ID="$CHAT_ID"
+			REPLY_ID="$ID"
 		}
 		[ "$CHANGED" ] || CHANGED='[empty message]'
 		telegram sendMessage \
@@ -71,4 +65,4 @@ while [ "${7+g}" = g ]; do
 	shift 7
 done
 
-echo $((OFFSET+1)) > /var/cache/sm_offset
+echo $((OFFSET+1)) > "$OFFSET_FILE"
