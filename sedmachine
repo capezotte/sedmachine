@@ -50,7 +50,7 @@ eval set -- "$ARGS"
 while [ "${7+g}" = g ]; do
 	REPLY_ID=$1; REPLY_CHAT_ID=$2; REPLY_TEXT=$3
 	CHANGER=$4; CHAT_ID=$5; TEXT=$6; ID=$7
-		if [ "$REPLY_ID" != null ] && [ "${TEXT#[sy][[:punct:]]}" != "$TEXT" ]; then
+	if [ "$REPLY_ID" != null ] && [ "${TEXT#[sy][[:punct:]]}" != "$TEXT" ]; then
 		CHANGED=$(printf '%s\n' "$REPLY_TEXT" | timeout 1 ${SED:-gsed --sandbox} -Ee "$TEXT" 2>&1) || {
 			REPLY_CHAT_ID="$CHAT_ID"
 			REPLY_ID="$ID"
@@ -61,7 +61,7 @@ while [ "${7+g}" = g ]; do
 			--data-urlencode reply_to_message_id="$REPLY_ID" \
 			--data-urlencode text="$CHANGED" >/dev/null 2>&1
 		printf >&2 '%s changed %s to %s\n' "$CHANGER" "$REPLY_TEXT" "$CHANGED"
-	fi
+	fi &
 	shift 7
 done
 
